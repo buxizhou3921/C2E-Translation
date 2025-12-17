@@ -35,9 +35,11 @@ def run_evaluate():
     print("词表加载成功")
 
     # 3. 模型
-    model = TranslationModel(zh_tokenizer.vocab_size, en_tokenizer.vocab_size, zh_tokenizer.pad_token_index,
+    model = TranslationModel(zh_tokenizer.vocab_size,
+                             en_tokenizer.vocab_size,
+                             zh_tokenizer.pad_token_index,
                              en_tokenizer.pad_token_index).to(device)
-    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / 'best.pt'))
+    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / 'best.pth'))
     print("模型加载成功")
 
     # 4. 数据集
