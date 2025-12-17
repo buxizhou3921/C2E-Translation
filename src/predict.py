@@ -4,12 +4,10 @@ from model import TranslationModel
 from tokenizer import ChineseTokenizer, EnglishTokenizer
 
 
-def predict_batch(model, inputs, en_tokenizer):
+def predict_batch(model, inputs, en_tokenizer, src_lengths):
     model.eval()
     with torch.no_grad():
         # 编码
-        # TODO: src_lengths的获取
-        src_lengths = torch.tensor([inputs.shape[1] - 3, inputs.shape[1] - 2])
         context_vector = model.encoder(inputs, src_lengths)
 
         # 解码
@@ -66,12 +64,13 @@ def predict_batch(model, inputs, en_tokenizer):
 def predict(text, model, zh_tokenizer, en_tokenizer, device):
     # 1. 处理输入
     indexes = zh_tokenizer.encode(text)
+    src_lengths = torch.tensor([len(indexes)], dtype=torch.long)
     input_tensor = torch.tensor([indexes], dtype=torch.long)
     input_tensor = input_tensor.to(device)
     # input_tensor.shape: [1, seq_len]
 
     # 2.预测逻辑
-    batch_result = predict_batch(model, input_tensor, en_tokenizer)
+    batch_result = predict_batch(model, input_tensor, en_tokenizer, src_lengths)
     return en_tokenizer.decode(batch_result[0])
 
 

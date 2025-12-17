@@ -21,11 +21,12 @@ class TranslationDataset(Dataset):
 def collate_fn(batch):
     input_tensors = [item[0] for item in batch]
     target_tensors = [item[1] for item in batch]
+    src_lengths = torch.LongTensor([len(seq) for seq in input_tensors])
 
     input_tensor = pad_sequence(input_tensors, batch_first=True, padding_value=0)
     target_tensor = pad_sequence(target_tensors, batch_first=True, padding_value=0)
 
-    return input_tensor, target_tensor
+    return input_tensor, target_tensor, src_lengths
 
 
 def get_dataloader(mode='train'):
@@ -53,7 +54,8 @@ if __name__ == '__main__':
     print(len(valid_dataloader))
     print(len(test_dataloader))
 
-    for input_tensor, target_tensor in train_dataloader:
+    for input_tensor, target_tensor, src_lengths in train_dataloader:
         print(input_tensor.shape)
         print(target_tensor.shape)
+        print(src_lengths)
         break

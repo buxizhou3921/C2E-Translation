@@ -12,12 +12,12 @@ def evaluate(model, test_dataloader, device, en_tokenizer):
     # predictions: [[*,*,*,*,*],[*,*,*,*],[*,*,*]]
     references = []
     # references: [[[*,*,*,*,*]],[[*,*,*,*]],[[*,*,*]]]
-    for inputs, targets in test_dataloader:
+    for inputs, targets, src_lengths in test_dataloader:
         inputs = inputs.to(device)
         # inputs.shape: [batch_size, seq_len]
         targets = targets.tolist()
         # targets: [[sos,*,*,*,*,*,eos],[sos,*,*,*,*,eos,pad],[sos,*,*,*,eos,pad,pad]]
-        batch_result = predict_batch(model, inputs, en_tokenizer)
+        batch_result = predict_batch(model, inputs, en_tokenizer, src_lengths)
         # batch_result: [[*,*,*,*,*],[*,*,*,*],[*,*,*]]
 
         predictions.extend(batch_result)

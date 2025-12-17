@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 class TranslationEncoder(nn.Module):
     def __init__(self, vocab_size, padding_index):
         super().__init__()
+        # TODO: pretrained word vectors, fine-tuned
         self.embedding = nn.Embedding(num_embeddings=vocab_size,
                                       embedding_dim=config.EMBEDDING_DIM,
                                       padding_idx=padding_index)
@@ -15,7 +16,6 @@ class TranslationEncoder(nn.Module):
                           batch_first=True)
 
     def forward(self, x, src_lengths):
-        # TODO: src_lengths的获取
         # x.shape: [batch_size, seq_len]
         embed = self.embedding(x)
         # embed.shape: [batch_size, seq_len, embedding_dim]
@@ -32,6 +32,7 @@ class TranslationEncoder(nn.Module):
 class TranslationDecoder(nn.Module):
     def __init__(self, vocab_size, padding_index):
         super().__init__()
+        # TODO: pretrained word vectors, fine-tuned
         self.embedding = nn.Embedding(num_embeddings=vocab_size,
                                       embedding_dim=config.EMBEDDING_DIM,
                                       padding_idx=padding_index)
@@ -82,15 +83,14 @@ if __name__ == '__main__':
                              zh_tokenizer.pad_token_index,
                              en_tokenizer.pad_token_index).to(device)
 
-    for inputs, targets in dataloader:
+    for inputs, targets, src_lengths in dataloader:
         encoder_inputs = inputs.to(device)  # inputs.shape: [batch_size, src_seq_len]
         targets = targets.to(device)  # targets.shape: [batch_size, tgt_seq_len]
         decoder_inputs = targets[:, :-1]  # decoder_inputs.shape: [batch_size, seq_len]
         decoder_targets = targets[:, 1:]  # decoder_targets.shape: [batch_size, seq_len]
 
-        zh_lengths = torch.tensor([encoder_inputs.shape[1]-3, encoder_inputs.shape[1] - 2])
         print("测试TranslationEncoder...")
-        encoder_hidden = model.encoder(encoder_inputs, zh_lengths)
+        encoder_hidden = model.encoder(encoder_inputs, src_lengths)
         print(f"Encoder输出hidden状态形状: {encoder_hidden.shape}")
 
         print("\n测试TranslationDecoder...")

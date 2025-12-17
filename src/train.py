@@ -2,24 +2,23 @@ import time
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from dataset import get_dataloader
-from tokenizer import ChineseTokenizer, EnglishTokenizer
 import config
 from model import TranslationModel
+from dataset import get_dataloader
+from tokenizer import ChineseTokenizer, EnglishTokenizer
+from evaluate import evaluate
 
 
 def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
     total_loss = 0
     model.train()
-    for inputs, targets in tqdm(dataloader, desc='训练'):
+    for inputs, targets, src_lengths in tqdm(dataloader, desc='训练'):
         encoder_inputs = inputs.to(device)  # inputs.shape: [batch_size, src_seq_len]
         targets = targets.to(device)  # targets.shape: [batch_size, tgt_seq_len]
         decoder_inputs = targets[:, :-1]  # decoder_inputs.shape: [batch_size, seq_len]
         decoder_targets = targets[:, 1:]  # decoder_targets.shape: [batch_size, seq_len]
 
         # 编码阶段
-        # TODO: src_lengths的获取
-        src_lengths = torch.tensor([encoder_inputs.shape[1] - 3, encoder_inputs.shape[1] - 2])
         context_vector = model.encoder(encoder_inputs, src_lengths)
         # context_vector.shape: [num_layers, batch_size, hidden_size]
 
@@ -58,7 +57,8 @@ def train():
     # 1. 设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # 2. 数据
-    dataloader = get_dataloader('train')
+    train_dataloader = get_dataloader('train')
+    valid_dataloader = get_dataloader('valid')
     # 3. 分词器
     zh_tokenizer = ChineseTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'zh_vocab.txt')
     en_tokenizer = EnglishTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'en_vocab.txt')
@@ -77,13 +77,15 @@ def train():
     best_loss = float('inf')
     for epoch in range(1, config.EPOCHS + 1):
         print(f'========== Epoch {epoch} ==========')
-        loss = train_one_epoch(model, dataloader, loss_fn, optimizer, device)
+        loss = train_one_epoch(model, train_dataloader, loss_fn, optimizer, device)
         print(f'Loss: {loss:.4f}')
 
         # 记录到Tensorboard
         writer.add_scalar('Loss', loss, epoch)
 
-        # TODO 评估逻辑
+        # TODO: 验证模型
+        bleu = evaluate(model, valid_dataloader, device, en_tokenizer)
+        print(f"评估结果[bleu: {bleu}]")
 
         # 保存模型
         if loss < best_loss:
