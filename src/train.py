@@ -83,6 +83,8 @@ def train():
         # 记录到Tensorboard
         writer.add_scalar('Loss', loss, epoch)
 
+        # TODO 评估逻辑
+
         # 保存模型
         if loss < best_loss:
             best_loss = loss
