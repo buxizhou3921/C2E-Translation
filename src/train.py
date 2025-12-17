@@ -58,7 +58,7 @@ def train():
     # 1. 设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # 2. 数据
-    dataloader = get_dataloader()
+    dataloader = get_dataloader('train')
     # 3. 分词器
     zh_tokenizer = ChineseTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'zh_vocab.txt')
     en_tokenizer = EnglishTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'en_vocab.txt')
