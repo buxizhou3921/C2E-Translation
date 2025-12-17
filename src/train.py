@@ -21,7 +21,7 @@ def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
         # TODO: src_lengths的获取
         src_lengths = torch.tensor([encoder_inputs.shape[1] - 3, encoder_inputs.shape[1] - 2])
         context_vector = model.encoder(encoder_inputs, src_lengths)
-        # context_vector.shape: [batch_size, hidden_size]
+        # context_vector.shape: [num_layers, batch_size, hidden_size]
 
         # 解码阶段
         decoder_hidden = context_vector
