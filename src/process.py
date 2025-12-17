@@ -1,5 +1,5 @@
-import pandas as pd
 import config
+import pandas as pd
 from tokenizer import EnglishTokenizer, ChineseTokenizer
 
 
