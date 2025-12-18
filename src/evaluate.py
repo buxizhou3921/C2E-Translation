@@ -1,5 +1,5 @@
 import torch
-from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 import config
 from model import TranslationModel
 from dataset import get_dataloader
@@ -20,9 +20,20 @@ def evaluate(model, dataloader, device, en_tokenizer):
         batch_result = predict_batch(model, inputs, en_tokenizer, src_lengths)
         # batch_result: [[*,*,*,*,*],[*,*,*,*],[*,*,*]]
 
+        batch_references = []
+        for target in targets:
+            # Find EOS index; if not found, use full length
+            try:
+                eos_idx = target.index(en_tokenizer.eos_token_index)
+            except ValueError:
+                eos_idx = len(target)
+            ref_tokens = target[1:eos_idx]  # remove <sos>
+            batch_references.append([ref_tokens])
+
         predictions.extend(batch_result)
-        references.extend([[target[1:target.index(en_tokenizer.eos_token_index)]] for target in targets])
-    return corpus_bleu(references, predictions)
+        references.extend(batch_references)
+    smooth = SmoothingFunction().method4
+    return corpus_bleu(references, predictions, smoothing_function=smooth)
 
 
 def run_evaluate():

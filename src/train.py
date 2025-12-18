@@ -78,7 +78,7 @@ def train():
     # 6. 优化器
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
     # 7. TensorBoard Writer
-    writer = SummaryWriter(log_dir=config.LOGS_DIR / time.strftime('%Y-%m-%d_%H-%M-%S'))
+    writer = SummaryWriter(log_dir=config.LOGS_GRU_DIR / time.strftime('%Y-%m-%d_%H-%M-%S'))
 
     # 记录总耗时
     total_start_time = time.time()
@@ -91,20 +91,20 @@ def train():
 
         bleu = evaluate(model, valid_dataloader, device, en_tokenizer)
         writer.add_scalar('bleu', bleu, epoch)
-        print(f"Loss: {loss:.4f} | bleu: {bleu:.4f} | time: {int(epoch_duration // 60):.2f} min {epoch_duration % 60:.2f} s")
+        print(f"Loss: {loss:.4f} | bleu: {bleu:.4f} | time: {int(epoch_duration // 60)} min {epoch_duration % 60:.2f} s")
 
         # 保存模型
         # if loss < best_loss:
         #     best_loss = loss
         if bleu > best_bleu and epoch % 2 == 0:
             best_bleu = bleu
-            torch.save(model.state_dict(), config.CHECKPOINTS_DIR / 'best.pth')
+            torch.save(model.state_dict(), config.CHECKPOINTS_GRU_DIR / 'best.pth')
             print('保存模型')
 
     writer.close()
     total_end_time = time.time()
     total_duration = total_end_time - total_start_time
-    print(f'总耗时: {int(total_duration // 60):.2f} min {total_duration % 60:.2f} s')
+    print(f'总耗时: {int(total_duration // 60)} min {total_duration % 60:.2f} s')
 
 
 if __name__ == '__main__':
