@@ -79,12 +79,14 @@ def run_predict():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 2.分词器
-    zh_tokenizer = ChineseTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'zh_vocab.txt')
-    en_tokenizer = EnglishTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'en_vocab.txt')
+    zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
+    en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
     print("分词器加载成功")
 
     # 3. 模型
-    model = TranslationModel(zh_tokenizer.vocab_size,
+    model = TranslationModel(zh_tokenizer.vocab_list,
+                             zh_tokenizer.vocab_size,
+                             en_tokenizer.vocab_list,
                              en_tokenizer.vocab_size,
                              zh_tokenizer.pad_token_index,
                              en_tokenizer.pad_token_index).to(device)
