@@ -5,8 +5,8 @@ from nltk import TreebankWordTokenizer, TreebankWordDetokenizer
 
 
 class BaseTokenizer:
-    unk_token = '<unk>'
     pad_token = '<pad>'
+    unk_token = '<unk>'
     sos_token = '<sos>'
     eos_token = '<eos>'
 
@@ -16,8 +16,8 @@ class BaseTokenizer:
         self.word2index = {word: index for index, word in enumerate(vocab_list)}
         self.index2word = {index: word for index, word in enumerate(vocab_list)}
 
-        self.unk_token_index = self.word2index[self.unk_token]
         self.pad_token_index = self.word2index[self.pad_token]
+        self.unk_token_index = self.word2index[self.unk_token]
         self.sos_token_index = self.word2index[self.sos_token]
         self.eos_token_index = self.word2index[self.eos_token]
 
@@ -35,13 +35,22 @@ class BaseTokenizer:
 
     @classmethod
     def build_vocab(cls, sentences, vocab_path):
-        # TODO: filter out low-frequency words
-        vocab_set = set()
-        for sentence in tqdm(sentences, desc="构建词表"):
-            vocab_set.update(cls.tokenize(sentence))
 
-        vocab_list = ([cls.pad_token, cls.unk_token, cls.sos_token, cls.eos_token] +
-                      [token for token in vocab_set if token.strip() != ''])
+        # 统计词频
+        vocab_counter = {}
+        for sentence in tqdm(sentences, desc="构建词表"):
+            tokens = cls.tokenize(sentence)
+            for token in tokens:
+                vocab_counter[token] = vocab_counter.get(token, 0) + 1
+
+        # 过滤低频词并构建词表
+        min_freq = 2
+        special_tokens = [cls.pad_token, cls.unk_token, cls.sos_token, cls.eos_token]
+        vocab_list = special_tokens + [
+            token for token, freq in vocab_counter.items()
+            if freq >= min_freq and token.strip() != ''
+        ]
+
         print(f'词表大小:{len(vocab_list)}')
 
         # 5.保存词表
