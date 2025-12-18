@@ -26,7 +26,8 @@ def predict_batch(model, inputs, en_tokenizer, src_lengths):
         # 记录每个样本是否已经生成结束符
         is_finished = torch.full([batch_size], False, device=device)
 
-        # 自回归生成
+        # 自回归生成: greedy
+        # TODO: beam-search
         for i in range(config.MAX_SEQ_LENGTH):
             # 解码
             decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)

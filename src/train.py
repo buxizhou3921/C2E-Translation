@@ -23,7 +23,8 @@ def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
         context_vector = model.encoder(encoder_inputs, src_lengths)
         # context_vector.shape: [num_layers, batch_size, hidden_size]
 
-        # 解码阶段
+        # 解码阶段: Teacher Forcing
+        # TODO: Free Running
         decoder_hidden = context_vector
         decoder_outputs = []
         seq_len = decoder_inputs.shape[1]

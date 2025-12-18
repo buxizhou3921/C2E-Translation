@@ -137,10 +137,11 @@ class TranslationModel(nn.Module):
         self.encoder = TranslationEncoder(vocab_size=zh_vocab_size, padding_index=zh_padding_index, pretrained_vectors=zh_pretrained)
         self.decoder = TranslationDecoder(vocab_size=en_vocab_size, padding_index=en_padding_index, pretrained_vectors=en_pretrained)
 
+        # TODO: attention
+        # TODO: alignment functions: dot-product, multiplicative, and additive
+
 
 if __name__ == '__main__':
-    import torch
-    import config
     from dataset import get_dataloader
     from tokenizer import ChineseTokenizer, EnglishTokenizer
 
@@ -176,10 +177,7 @@ if __name__ == '__main__':
             decoder_input = decoder_inputs[:, i].unsqueeze(1)  # decoder_input.shape: [batch_size, 1]
             decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)
             # decoder_output.shape: [batch_size, 1, vocab_size]
-            print(f"Decoder输出output形状: {decoder_output.shape}")  # [batch_size, 1, en_vocab_size]
-            print(f"Decoder输出hidden状态形状: {decoder_hidden.shape}")
+            print(f"Decoder单次输出output形状: {decoder_output.shape}")  # [batch_size, 1, en_vocab_size]
+            print(f"Decoder单次输出hidden状态形状: {decoder_hidden.shape}")
             break
         break
-    print("\n测试完成！前向传播正常工作。")
-
-
