@@ -27,9 +27,9 @@ def analyze_seq_len(df):
 def clean_text(text, language):
     """ 文本清洗 """
     if language == 'zh':
-        cleaned = re.sub(r'[^\u4e00-\u9fff\s]+', '', str(text))
+        cleaned = re.sub(r'[^\u4e00-\u9fff\u3000-\u303f\uff01-\uff1f\s]+', '', str(text))
     elif language == 'en':
-        cleaned = re.sub(r'[^a-zA-Z\s]+', '', str(text)).lower()
+        cleaned = re.sub(r'[^a-zA-Z!"#$%&\'()*+,\-./:;<=>?@\[$$^_`{|}~\s]+', '', str(text)).lower()
     else:
         raise ValueError(f"Invalid language: {language}. Use 'zh' or 'en'!")
 
@@ -90,7 +90,7 @@ def process():
     print("开始处理数据")
 
     # 读取文件
-    train_df = pd.read_json(config.RAW_DATA_DIR / 'train_10k.jsonl', lines=True,
+    train_df = pd.read_json(config.RAW_DATA_DIR / 'train_100k.jsonl', lines=True,
                             orient='records', encoding='utf-8').dropna()
     valid_df = pd.read_json(config.RAW_DATA_DIR / 'valid.jsonl', lines=True,
                             orient='records', encoding='utf-8').dropna()
@@ -103,12 +103,12 @@ def process():
     test_df = preprocess_df(test_df, filter_long=False)
 
     # 构建词表
-    ChineseTokenizer.build_vocab(train_df['zh'].tolist(), config.CHECKPOINTS_DIR / 'zh_vocab.txt')
-    EnglishTokenizer.build_vocab(train_df['en'].tolist(), config.CHECKPOINTS_DIR / 'en_vocab.txt')
+    ChineseTokenizer.build_vocab(train_df['zh'].tolist(), config.VOCAB_DIR / 'zh_vocab.txt')
+    EnglishTokenizer.build_vocab(train_df['en'].tolist(), config.VOCAB_DIR / 'en_vocab.txt')
 
     # 构建Tokenizer
-    zh_tokenizer = ChineseTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'zh_vocab.txt')
-    en_tokenizer = EnglishTokenizer.from_vocab(config.CHECKPOINTS_DIR / 'en_vocab.txt')
+    zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
+    en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
 
     # 处理各个数据集
     tokenize_dataset(train_df, zh_tokenizer, en_tokenizer, "train")
