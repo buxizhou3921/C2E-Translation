@@ -85,13 +85,14 @@ def run_predict():
     print("分词器加载成功")
 
     # 3. 模型
+    print("模型加载较缓慢，请耐心等待...")
     model = TranslationModel(zh_tokenizer.vocab_list,
                              zh_tokenizer.vocab_size,
                              en_tokenizer.vocab_list,
                              en_tokenizer.vocab_size,
                              zh_tokenizer.pad_token_index,
                              en_tokenizer.pad_token_index).to(device)
-    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / 'best.pth'))
+    model.load_state_dict(torch.load(config.CHECKPOINTS_GRU_DIR / 'best.pth'))
     print("模型加载成功")
 
     print("欢迎使用中英翻译模型(输入q或者quit退出)")
