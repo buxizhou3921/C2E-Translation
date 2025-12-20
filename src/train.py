@@ -1,12 +1,13 @@
 import time
 import torch
+import argparse
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 import config
-from model import TranslationModel
 from dataset import get_dataloader
+from utils import get_model
 from tokenizer import ChineseTokenizer, EnglishTokenizer
 from evaluate import evaluate
 
@@ -21,7 +22,7 @@ def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
         decoder_targets = targets[:, 1:]  # decoder_targets.shape: [batch_size, seq_len]
 
         # 编码阶段
-        context_vector = model.encoder(encoder_inputs, src_lengths)
+        encoder_outputs, context_vector = model.encoder(encoder_inputs, src_lengths)
         # context_vector.shape: [num_layers, batch_size, hidden_size]
 
         # 解码阶段: Teacher Forcing
@@ -31,7 +32,7 @@ def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
         seq_len = decoder_inputs.shape[1]
         for i in range(seq_len):
             decoder_input = decoder_inputs[:, i].unsqueeze(1)  # decoder_input.shape: [batch_size, 1]
-            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)
+            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden, encoder_outputs)
             # decoder_output.shape: [batch_size, 1, vocab_size]
             decoder_outputs.append(decoder_output)
 
@@ -57,6 +58,14 @@ def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
 
 
 def train():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-model', type=str, required=True, help='Model type')
+    parser.add_argument('-align', type=str, default='dot',
+                        help='Attention alignment function (dot/multiplicative/additive)')
+    parser.add_argument('-train', type=str, default='teacher', help='Training policy (teacher/free)')
+    parser.add_argument('-decode', type=str, default='greedy', help='Decoding policy (greedy/beam-search)')
+    args = parser.parse_args()
+
     # 1. 设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # 2. 数据
@@ -68,19 +77,15 @@ def train():
     en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
     # 4. 模型
     print("模型加载较缓慢，请耐心等待...")
-    model = TranslationModel(zh_tokenizer.vocab_list,
-                             zh_tokenizer.vocab_size,
-                             en_tokenizer.vocab_list,
-                             en_tokenizer.vocab_size,
-                             zh_tokenizer.pad_token_index,
-                             en_tokenizer.pad_token_index).to(device)
+    model = get_model(args, zh_tokenizer, en_tokenizer, device)
+    print("模型加载成功")
     # 5. 损失函数
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=en_tokenizer.pad_token_index)
     # 6. 优化器 and 调度器
     optimizer = Adam(model.parameters(), lr=config.LEARNING_RATE)
     scheduler = CosineAnnealingLR(optimizer, T_max=config.EPOCHS, eta_min=1e-6)
     # 7. TensorBoard Writer
-    writer = SummaryWriter(log_dir=config.LOGS_GRU_DIR / time.strftime('%Y-%m-%d_%H-%M-%S'))
+    writer = SummaryWriter(log_dir=config.LOGS_DIR / args.model / time.strftime('%Y-%m-%d_%H-%M-%S'))
 
     # best_loss = float('inf')
     best_bleu = 0
@@ -102,7 +107,7 @@ def train():
         #     best_loss = loss
         if bleu > best_bleu and epoch % 2 == 0:
             best_bleu = bleu
-            torch.save(model.state_dict(), config.CHECKPOINTS_GRU_DIR / 'best.pth')
+            torch.save(model.state_dict(), config.CHECKPOINTS_DIR / args.model / 'best.pth')
             print('保存模型')
 
     writer.close()

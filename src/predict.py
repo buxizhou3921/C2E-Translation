@@ -1,6 +1,7 @@
 import torch
 import config
-from model import TranslationModel
+import argparse
+from utils import get_model
 from tokenizer import ChineseTokenizer, EnglishTokenizer
 
 
@@ -8,7 +9,7 @@ def predict_batch(model, inputs, en_tokenizer, src_lengths):
     model.eval()
     with torch.no_grad():
         # 编码
-        context_vector = model.encoder(inputs, src_lengths)
+        encoder_outputs, context_vector = model.encoder(inputs, src_lengths)
 
         # 解码
         batch_size = inputs.shape[0]
@@ -30,7 +31,7 @@ def predict_batch(model, inputs, en_tokenizer, src_lengths):
         # TODO: beam-search
         for i in range(config.MAX_SEQ_LENGTH):
             # 解码
-            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)
+            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden, encoder_outputs)
             # decoder_output.shape: [batch_size, 1, vocab_size]
 
             # 保存预测结果
@@ -76,6 +77,13 @@ def predict(text, model, zh_tokenizer, en_tokenizer, device):
 
 
 def run_predict():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-model', type=str, required=True, help='Model type')
+    parser.add_argument('-align', type=str, default='dot',
+                        help='Attention alignment function (dot/multiplicative/additive)')
+    parser.add_argument('-decode', type=str, default='greedy', help='Decoding policy (greedy/beam-search)')
+    args = parser.parse_args()
+
     # 1. 确定设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -86,13 +94,8 @@ def run_predict():
 
     # 3. 模型
     print("模型加载较缓慢，请耐心等待...")
-    model = TranslationModel(zh_tokenizer.vocab_list,
-                             zh_tokenizer.vocab_size,
-                             en_tokenizer.vocab_list,
-                             en_tokenizer.vocab_size,
-                             zh_tokenizer.pad_token_index,
-                             en_tokenizer.pad_token_index).to(device)
-    model.load_state_dict(torch.load(config.CHECKPOINTS_GRU_DIR / 'best.pth'))
+    model = get_model(args, zh_tokenizer, en_tokenizer, device)
+    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth'))
     print("模型加载成功")
 
     print("欢迎使用中英翻译模型(输入q或者quit退出)")
