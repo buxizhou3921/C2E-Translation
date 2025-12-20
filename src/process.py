@@ -29,7 +29,7 @@ def clean_text(text, language):
     if language == 'zh':
         cleaned = re.sub(r'[^\u4e00-\u9fff\u3000-\u303f\uff01-\uff1f\s]+', '', str(text))
     elif language == 'en':
-        cleaned = re.sub(r'[^a-zA-Z!"#$%&\'()*+,\-./:;<=>?@\[$$^_`{|}~\s]+', '', str(text)).lower()
+        cleaned = re.sub(r'[^a-zA-Z!"#$%&\'()*+,\-./:;<=>?@\[\]^_`{|}~\s]+', '', str(text)).lower()
     else:
         raise ValueError(f"Invalid language: {language}. Use 'zh' or 'en'!")
 

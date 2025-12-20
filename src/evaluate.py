@@ -1,7 +1,8 @@
 import torch
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 import config
-from model import TranslationModel
+import argparse
+from utils import get_model
 from dataset import get_dataloader
 from predict import predict_batch
 from tokenizer import ChineseTokenizer, EnglishTokenizer
@@ -37,6 +38,13 @@ def evaluate(model, dataloader, device, en_tokenizer):
 
 
 def run_evaluate():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-model', type=str, required=True, help='Model type')
+    parser.add_argument('-align', type=str, default='dot',
+                        help='Attention alignment function (dot/multiplicative/additive)')
+    parser.add_argument('-decode', type=str, default='greedy', help='Decoding policy (greedy/beam-search)')
+    args = parser.parse_args()
+
     # 1. 确定设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -47,13 +55,8 @@ def run_evaluate():
 
     # 3. 模型
     print("模型加载较缓慢，请耐心等待...")
-    model = TranslationModel(zh_tokenizer.vocab_list,
-                             zh_tokenizer.vocab_size,
-                             en_tokenizer.vocab_list,
-                             en_tokenizer.vocab_size,
-                             zh_tokenizer.pad_token_index,
-                             en_tokenizer.pad_token_index).to(device)
-    model.load_state_dict(torch.load(config.CHECKPOINTS_GRU_DIR / 'best.pth'))
+    model = get_model(args, zh_tokenizer, en_tokenizer, device)
+    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth'))
     print("模型加载成功")
 
     # 4. 数据集

@@ -4,9 +4,9 @@ ROOT_DIR = Path(__file__).parent.parent
 
 RAW_DATA_DIR = ROOT_DIR / "data" / "raw"
 PROCESSED_DATA_DIR = ROOT_DIR / "data" / "processed"
-LOGS_GRU_DIR = ROOT_DIR / "logs" / "GRU"
-CHECKPOINTS_GRU_DIR = ROOT_DIR / "checkpoints" / "GRU"
 VOCAB_DIR = ROOT_DIR / "vocab"
+LOGS_DIR = ROOT_DIR / "logs"
+CHECKPOINTS_DIR = ROOT_DIR / "checkpoints"
 
 MAX_SEQ_LENGTH = 180
 MAX_ZH_LENGTH = 110
