@@ -2,7 +2,7 @@ import config
 import numpy as np
 import torch
 from torch import nn
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 def load_pretrained_embedding(vocab_list, embedding_path, embedding_dim):
@@ -41,7 +41,7 @@ def load_pretrained_embedding(vocab_list, embedding_path, embedding_dim):
     return embedding_matrix
 
 
-class TranslationEncoder(nn.Module):
+class GRUEncoder(nn.Module):
     def __init__(self, vocab_size, padding_index, pretrained_vectors=None):
         super().__init__()
 
@@ -76,10 +76,14 @@ class TranslationEncoder(nn.Module):
         packed_output, hidden = self.gru(packed)
         # hidden.shape: [num_layers, batch_size, hidden_size]
 
-        return hidden
+        # 将打包的输出还原为填充序列
+        outputs, _ = pad_packed_sequence(packed_output, batch_first=True)
+        # outputs.shape: [batch_size, seq_len, hidden_size]
+
+        return outputs, hidden
 
 
-class TranslationDecoder(nn.Module):
+class GRUDecoder(nn.Module):
     def __init__(self, vocab_size, padding_index, pretrained_vectors=None):
         super().__init__()
         self.embedding = nn.Embedding(num_embeddings=vocab_size,
@@ -106,7 +110,7 @@ class TranslationDecoder(nn.Module):
         self.linear = nn.Linear(in_features=config.HIDDEN_SIZE,
                                 out_features=vocab_size)
 
-    def forward(self, x, hidden_0):
+    def forward(self, x, hidden_0, encoder_outputs=None):
         # x.shape: [batch_size, 1]
         # hidden_0.shape: [num_layers, batch_size, hidden_size]
         embed = self.embedding(x)
@@ -118,7 +122,7 @@ class TranslationDecoder(nn.Module):
         return output, hidden_n
 
 
-class TranslationModel(nn.Module):
+class GRUModel(nn.Module):
     def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index):
         super().__init__()
         # 加载中文预训练词向量
@@ -134,16 +138,13 @@ class TranslationModel(nn.Module):
             embedding_dim=config.EMBEDDING_DIM
         )
 
-        self.encoder = TranslationEncoder(vocab_size=zh_vocab_size, padding_index=zh_padding_index, pretrained_vectors=zh_pretrained)
-        self.decoder = TranslationDecoder(vocab_size=en_vocab_size, padding_index=en_padding_index, pretrained_vectors=en_pretrained)
-
-        # TODO: attention
-        # TODO: alignment functions: dot-product, multiplicative, and additive
+        self.encoder = GRUEncoder(vocab_size=zh_vocab_size, padding_index=zh_padding_index, pretrained_vectors=zh_pretrained)
+        self.decoder = GRUDecoder(vocab_size=en_vocab_size, padding_index=en_padding_index, pretrained_vectors=en_pretrained)
 
 
 if __name__ == '__main__':
-    from dataset import get_dataloader
-    from tokenizer import ChineseTokenizer, EnglishTokenizer
+    from src.dataset import get_dataloader
+    from src.tokenizer import ChineseTokenizer, EnglishTokenizer
 
     # 1. 设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -153,7 +154,7 @@ if __name__ == '__main__':
     zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
     en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
     # 4. 模型
-    model = TranslationModel(zh_tokenizer.vocab_list,
+    model = GRUModel(zh_tokenizer.vocab_list,
                              zh_tokenizer.vocab_size,
                              en_tokenizer.vocab_list,
                              en_tokenizer.vocab_size,
