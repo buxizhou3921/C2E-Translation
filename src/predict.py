@@ -5,21 +5,26 @@ from utils import get_model
 from tokenizer import ChineseTokenizer, EnglishTokenizer
 
 
-def predict_batch(model, inputs, en_tokenizer, src_lengths):
+def predict_batch(model, inputs, en_tokenizer, src_lengths, model_type):
     model.eval()
     with torch.no_grad():
         # 编码
-        encoder_outputs, context_vector = model.encoder(inputs, src_lengths)
+        if model_type in ['gru_seq2seq', 'gru_attention']:
+            encoder_outputs, context_vector = model.encoder(inputs, src_lengths)
+            # 隐藏状态
+            decoder_hidden = context_vector
+            # decoder_hidden.shape: [num_layers, batch_size, hidden_size]
+        elif model_type == 'transformer':
+            src_pad_mask = (inputs == model.zh_embedding.padding_idx)
+            memory = model.encode(inputs, src_pad_mask)
+            # memory.shape: [batch_size, src_seq_len, d_model]
 
         # 解码
         batch_size = inputs.shape[0]
         device = inputs.device
 
-        # 隐藏状态
-        decoder_hidden = context_vector
-        # decoder_hidden.shape: [num_layers, batch_size, hidden_size]
         decoder_input = torch.full([batch_size, 1], en_tokenizer.sos_token_index, device=device)
-        # decoder_input.shape: [batch_size, 1]
+        # decoder_input.shape: [batch_size, tgt_seq_len]
 
         # 预测结果缓存
         generated = []
@@ -30,17 +35,27 @@ def predict_batch(model, inputs, en_tokenizer, src_lengths):
         # 自回归生成: greedy
         # TODO: beam-search
         for i in range(config.MAX_SEQ_LENGTH):
-            # 解码
-            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden, encoder_outputs)
-            # decoder_output.shape: [batch_size, 1, vocab_size]
+            if model_type in ['gru_seq2seq', 'gru_attention']:
+                # 解码
+                decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden, encoder_outputs)
+                # decoder_output.shape: [batch_size, 1, vocab_size]
+                next_token_indexes = torch.argmax(decoder_output, dim=-1)
+                # next_token_indexes.shape: [batch_size, 1]
+
+                # 更新输入(decoder_input)
+                decoder_input = next_token_indexes
+            elif model_type == 'transformer':
+                tgt_mask = model.transformer.generate_square_subsequent_mask(decoder_input.shape[1])
+                decoder_output = model.decode(decoder_input, memory, tgt_mask, src_pad_mask)
+                # decoder_output.shape: [batch_size, tgt_seq_len, en_vocab_size]
+                next_token_indexes = torch.argmax(decoder_output[:, -1, :], dim=-1, keepdim=True)
+                # next_token_indexes.shape: [batch_size, 1]
+
+                # 更新输入(decoder_input)
+                decoder_input = torch.cat([decoder_input, next_token_indexes], dim=-1)
 
             # 保存预测结果
-            next_token_indexes = torch.argmax(decoder_output, dim=-1)
-            # next_token_indexes.shape: [batch_size, 1]
             generated.append(next_token_indexes)
-
-            # 更新输入(decoder_input)
-            decoder_input = next_token_indexes
 
             # 判断是否应该结束
             is_finished |= (next_token_indexes.squeeze(1) == en_tokenizer.eos_token_index)
@@ -63,7 +78,7 @@ def predict_batch(model, inputs, en_tokenizer, src_lengths):
         return generated_list
 
 
-def predict(text, model, zh_tokenizer, en_tokenizer, device):
+def predict(text, model, zh_tokenizer, en_tokenizer, device, model_type):
     # 1. 处理输入
     indexes = zh_tokenizer.encode(text)
     src_lengths = torch.tensor([len(indexes)], dtype=torch.long)
@@ -72,7 +87,7 @@ def predict(text, model, zh_tokenizer, en_tokenizer, device):
     # input_tensor.shape: [1, seq_len]
 
     # 2.预测逻辑
-    batch_result = predict_batch(model, input_tensor, en_tokenizer, src_lengths)
+    batch_result = predict_batch(model, input_tensor, en_tokenizer, src_lengths, model_type)
     return en_tokenizer.decode(batch_result[0])
 
 
@@ -108,7 +123,7 @@ def run_predict():
             print("请输入内容")
             continue
 
-        result = predict(user_input, model, zh_tokenizer, en_tokenizer, device)
+        result = predict(user_input, model, zh_tokenizer, en_tokenizer, device, args.model)
         print("英文：", result)
 
 

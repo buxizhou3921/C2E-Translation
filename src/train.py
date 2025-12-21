@@ -12,7 +12,7 @@ from tokenizer import ChineseTokenizer, EnglishTokenizer
 from evaluate import evaluate
 
 
-def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
+def train_one_epoch(model, dataloader, loss_fn, optimizer, device, model_type):
     total_loss = 0
     model.train()
     for inputs, targets, src_lengths in tqdm(dataloader, desc='训练'):
@@ -21,24 +21,34 @@ def train_one_epoch(model, dataloader, loss_fn, optimizer, device):
         decoder_inputs = targets[:, :-1]  # decoder_inputs.shape: [batch_size, seq_len]
         decoder_targets = targets[:, 1:]  # decoder_targets.shape: [batch_size, seq_len]
 
-        # 编码阶段
-        encoder_outputs, context_vector = model.encoder(encoder_inputs, src_lengths)
-        # context_vector.shape: [num_layers, batch_size, hidden_size]
+        # 前向传播
+        if model_type in ['gru_seq2seq', 'gru_attention']:
+            # 编码阶段
+            encoder_outputs, context_vector = model.encoder(encoder_inputs, src_lengths)
+            # context_vector.shape: [num_layers, batch_size, hidden_size]
 
-        # 解码阶段: Teacher Forcing
-        # TODO: Free Running
-        decoder_hidden = context_vector
-        decoder_outputs = []
-        seq_len = decoder_inputs.shape[1]
-        for i in range(seq_len):
-            decoder_input = decoder_inputs[:, i].unsqueeze(1)  # decoder_input.shape: [batch_size, 1]
-            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden, encoder_outputs)
-            # decoder_output.shape: [batch_size, 1, vocab_size]
-            decoder_outputs.append(decoder_output)
+            # 解码阶段: Teacher Forcing
+            # TODO: Free Running
+            decoder_hidden = context_vector
+            decoder_outputs = []
+            seq_len = decoder_inputs.shape[1]
+            for i in range(seq_len):
+                decoder_input = decoder_inputs[:, i].unsqueeze(1)  # decoder_input.shape: [batch_size, 1]
+                decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden, encoder_outputs)
+                # decoder_output.shape: [batch_size, 1, vocab_size]
+                decoder_outputs.append(decoder_output)
 
-        # decoder_outputs：[tensor([batch_size,1,vocab_size])] -> [batch_size * seq_len, vocab_size]
-        decoder_outputs = torch.cat(decoder_outputs, dim=1)
-        # decoder_outputs.shape: [batch_size ,seq_len, vocab_size]
+            # decoder_outputs：[tensor([batch_size,1,vocab_size])] -> [batch_size * seq_len, vocab_size]
+            decoder_outputs = torch.cat(decoder_outputs, dim=1)
+            # decoder_outputs.shape: [batch_size ,seq_len, vocab_size]
+        elif model_type == 'transformer':
+            src_pad_mask = (encoder_inputs == model.zh_embedding.padding_idx)
+            tgt_mask = model.transformer.generate_square_subsequent_mask(decoder_inputs.shape[1])
+            decoder_outputs = model(encoder_inputs, decoder_inputs, src_pad_mask, tgt_mask)
+            # decoder_outputs.shape: [batch_size, seq_len, en_vocab_size]
+        else:
+            raise ValueError(f"未知的模型类型: {model_type}")
+
         decoder_outputs = decoder_outputs.reshape(-1, decoder_outputs.shape[-1])
         # decoder_outputs.shape: [batch_size * seq_len, vocab_size]
 
@@ -91,8 +101,8 @@ def train():
     best_bleu = 0
     for epoch in range(1, config.EPOCHS + 1):
         print(f'========== Epoch {epoch} ==========')
-        loss = train_one_epoch(model, train_dataloader, loss_fn, optimizer, device)
-        bleu = evaluate(model, test_dataloader, device, en_tokenizer)
+        loss = train_one_epoch(model, train_dataloader, loss_fn, optimizer, device, args.model)
+        bleu = evaluate(model, test_dataloader, device, en_tokenizer, args.model)
         # 更新学习率
         scheduler.step()
         # 记录过程量

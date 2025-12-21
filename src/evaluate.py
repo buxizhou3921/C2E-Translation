@@ -8,7 +8,7 @@ from predict import predict_batch
 from tokenizer import ChineseTokenizer, EnglishTokenizer
 
 
-def evaluate(model, dataloader, device, en_tokenizer):
+def evaluate(model, dataloader, device, en_tokenizer, model_type):
     predictions = []
     # predictions: [[*,*,*,*,*],[*,*,*,*],[*,*,*]]
     references = []
@@ -18,7 +18,7 @@ def evaluate(model, dataloader, device, en_tokenizer):
         # inputs.shape: [batch_size, seq_len]
         targets = targets.tolist()
         # targets: [[sos,*,*,*,*,*,eos],[sos,*,*,*,*,eos,pad],[sos,*,*,*,eos,pad,pad]]
-        batch_result = predict_batch(model, inputs, en_tokenizer, src_lengths)
+        batch_result = predict_batch(model, inputs, en_tokenizer, src_lengths, model_type)
         # batch_result: [[*,*,*,*,*],[*,*,*,*],[*,*,*]]
 
         batch_references = []
@@ -63,7 +63,7 @@ def run_evaluate():
     test_dataloader = get_dataloader('test')
 
     # 5.评估逻辑
-    bleu = evaluate(model, test_dataloader, device, en_tokenizer)
+    bleu = evaluate(model, test_dataloader, device, en_tokenizer, args.model)
     print("评估结果")
     print(f"bleu: {bleu}")
 
