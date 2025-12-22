@@ -2,7 +2,7 @@ import config
 import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from utils import load_pretrained_embedding
+from tools import load_pretrained_embedding
 
 
 class GRUEncoder(nn.Module):

@@ -2,7 +2,7 @@ import math
 import torch
 from torch import nn
 import config
-from utils import load_pretrained_embedding
+from tools import load_pretrained_embedding
 
 
 # class PositionEncoding(nn.Module):
