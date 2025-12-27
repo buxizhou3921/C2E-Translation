@@ -111,14 +111,16 @@ class GRUAttentionModel(nn.Module):
         # 加载中文预训练词向量
         zh_pretrained = load_pretrained_embedding(
             vocab_list=zh_vocab_list,
-            embedding_path= config.VOCAB_DIR / 'tencent-ailab-embedding-zh-d100-v0.2.0.txt',
-            embedding_dim=config.EMBEDDING_DIM
+            embedding_path=config.VOCAB_DIR / 'tencent-ailab-embedding-zh-d100-v0.2.0.txt',
+            embedding_dim=config.EMBEDDING_DIM,
+            cache_path=config.VOCAB_DIR / 'zh_pretrained_vectors.pt'
         )
         # 加载英文预训练词向量
         en_pretrained = load_pretrained_embedding(
             vocab_list=en_vocab_list,
-            embedding_path= config.VOCAB_DIR / 'glove_2024_wikigiga_100d.txt',
-            embedding_dim=config.EMBEDDING_DIM
+            embedding_path=config.VOCAB_DIR / 'glove_2024_wikigiga_100d.txt',
+            embedding_dim=config.EMBEDDING_DIM,
+            cache_path=config.VOCAB_DIR / 'en_pretrained_vectors.pt'
         )
 
         self.encoder = GRUAttentionEncoder(vocab_size=zh_vocab_size, padding_index=zh_padding_index, pretrained_vectors=zh_pretrained)
