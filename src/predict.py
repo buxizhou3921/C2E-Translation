@@ -108,7 +108,7 @@ def run_predict():
 
     # 3. 模型
     model = get_model(args, zh_tokenizer, en_tokenizer, device)
-    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth'))
+    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth', weights_only=True))
 
     print("欢迎使用中英翻译模型(输入q或者quit退出)")
     while True:

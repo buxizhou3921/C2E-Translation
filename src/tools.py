@@ -15,7 +15,7 @@ def load_pretrained_embedding(vocab_list, embedding_path, embedding_dim, cache_p
     # 检查是否存在缓存文件
     if os.path.exists(cache_path):
         print(f"从缓存加载预训练词向量: {cache_path}")
-        return torch.load(cache_path)
+        return torch.load(cache_path, weights_only=True)
 
     print(f"首次加载预训练词向量，将创建缓存文件: {cache_path}")
 
@@ -46,6 +46,4 @@ def load_pretrained_embedding(vocab_list, embedding_path, embedding_dim, cache_p
 
     # 保存缓存
     torch.save(embedding_matrix, cache_path)
-    print(f"预训练词向量已缓存到: {cache_path}")
-
     return embedding_matrix

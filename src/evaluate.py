@@ -54,7 +54,7 @@ def run_evaluate():
 
     # 3. 模型
     model = get_model(args, zh_tokenizer, en_tokenizer, device)
-    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth'))
+    model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth', weights_only=True))
 
     # 4. 数据集
     test_dataloader = get_dataloader('test')
