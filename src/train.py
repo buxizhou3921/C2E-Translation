@@ -86,9 +86,7 @@ def train():
     zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
     en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
     # 4. 模型
-    print("模型加载较缓慢，请耐心等待...")
     model = get_model(args, zh_tokenizer, en_tokenizer, device)
-    print("模型加载成功")
     # 5. 损失函数
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=en_tokenizer.pad_token_index)
     # 6. 优化器 and 调度器

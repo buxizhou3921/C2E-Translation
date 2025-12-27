@@ -105,13 +105,10 @@ def run_predict():
     # 2.分词器
     zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
     en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
-    print("分词器加载成功")
 
     # 3. 模型
-    print("模型加载较缓慢，请耐心等待...")
     model = get_model(args, zh_tokenizer, en_tokenizer, device)
     model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth'))
-    print("模型加载成功")
 
     print("欢迎使用中英翻译模型(输入q或者quit退出)")
     while True:

@@ -51,13 +51,10 @@ def run_evaluate():
     # 2.词表
     zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
     en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
-    print("词表加载成功")
 
     # 3. 模型
-    print("模型加载较缓慢，请耐心等待...")
     model = get_model(args, zh_tokenizer, en_tokenizer, device)
     model.load_state_dict(torch.load(config.CHECKPOINTS_DIR / args.model / 'best.pth'))
-    print("模型加载成功")
 
     # 4. 数据集
     test_dataloader = get_dataloader('test')
