@@ -18,9 +18,12 @@
 # python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 5e-4 -heads 2 -layers 4
 # python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 5e-4 -heads 4 -layers 4
 
-# python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 5e-4 -heads 2 -layers 4
+# python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 1e-3 -heads 2 -layers 2
 # python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 1e-3 -heads 2 -layers 4
-# python src/train.py -model transformer -position absolute -norm layer -bs 128 -lr 1e-3 -heads 2 -layers 4
+# python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 1e-3 -heads 4 -layers 4
+
+# python src/train.py -model transformer -position absolute -norm layer -bs 128 -lr 1e-3 -heads 2 -layers 2
+# python src/train.py -model transformer -position absolute -norm layer -bs 128 -lr 1e-3 -heads 4 -layers 4
 
 
 
@@ -37,7 +40,3 @@
 # python src/evaluate.py -model gru_attention -train free -align mul -decode greedy/beam-search
 # python src/evaluate.py -model gru_attention -train free -align add -decode greedy/beam-search
 
-# python src/evaluate.py -model transformer -position absolute -norm layer
-# python src/evaluate.py -model transformer -position absolute -norm rms
-# python src/evaluate.py -model transformer -position relative -norm layer
-# python src/evaluate.py -model transformer -position relative -norm rms
