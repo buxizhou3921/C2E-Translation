@@ -111,14 +111,9 @@ def run_evaluate():
     model = load_model(args, zh_tokenizer, en_tokenizer, device)
 
     # 4. 评估逻辑
-    print("=" * 70)
-    print("开始评估模型...")
-    print("=" * 70)
     bleu = evaluate(model, test_dataloader, device, predict_tokenizer, args)
-    print("\n" + "=" * 70)
     print("评估结果")
     print(f"BLEU Score: {bleu:.4f}")
-    print("=" * 70)
 
 
 if __name__ == '__main__':
