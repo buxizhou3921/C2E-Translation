@@ -1,5 +1,4 @@
 import config
-import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from tools import load_pretrained_embedding
@@ -87,7 +86,7 @@ class GRUDecoder(nn.Module):
 
 
 class GRUModel(nn.Module):
-    def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index):
+    def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index, args):
         super().__init__()
         # 加载中文预训练词向量
         zh_pretrained = load_pretrained_embedding(
@@ -109,42 +108,4 @@ class GRUModel(nn.Module):
 
 
 if __name__ == '__main__':
-    from src.dataset import get_dataloader
-    from src.tokenizer import ChineseTokenizer, EnglishTokenizer
-
-    # 1. 设备
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # 2. 数据
-    train_dataloader = get_dataloader("train")
-    # 3. 分词器
-    zh_tokenizer = ChineseTokenizer.from_vocab(config.VOCAB_DIR / 'zh_vocab.txt')
-    en_tokenizer = EnglishTokenizer.from_vocab(config.VOCAB_DIR / 'en_vocab.txt')
-    # 4. 模型
-    model = GRUModel(zh_tokenizer.vocab_list,
-                             zh_tokenizer.vocab_size,
-                             en_tokenizer.vocab_list,
-                             en_tokenizer.vocab_size,
-                             zh_tokenizer.pad_token_index,
-                             en_tokenizer.pad_token_index).to(device)
-
-    for inputs, targets, src_lengths in train_dataloader:
-        encoder_inputs = inputs.to(device)  # inputs.shape: [batch_size, src_seq_len]
-        targets = targets.to(device)  # targets.shape: [batch_size, tgt_seq_len]
-        decoder_inputs = targets[:, :-1]  # decoder_inputs.shape: [batch_size, seq_len]
-        decoder_targets = targets[:, 1:]  # decoder_targets.shape: [batch_size, seq_len]
-
-        print("测试TranslationEncoder...")
-        encoder_hidden = model.encoder(encoder_inputs, src_lengths)
-        print(f"Encoder输出hidden状态形状: {encoder_hidden.shape}")
-
-        print("\n测试TranslationDecoder...")
-        decoder_hidden = encoder_hidden
-        seq_len = decoder_inputs.shape[1]
-        for i in range(seq_len):
-            decoder_input = decoder_inputs[:, i].unsqueeze(1)  # decoder_input.shape: [batch_size, 1]
-            decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)
-            # decoder_output.shape: [batch_size, 1, vocab_size]
-            print(f"Decoder单次输出output形状: {decoder_output.shape}")  # [batch_size, 1, en_vocab_size]
-            print(f"Decoder单次输出hidden状态形状: {decoder_hidden.shape}")
-            break
-        break
+    pass

@@ -29,7 +29,7 @@ def collate_fn(batch):
     return input_tensor, target_tensor, src_lengths
 
 
-def get_dataloader(mode='train'):
+def get_dataloader(args, mode='train'):
     if mode == 'train':
         path = config.PROCESSED_DATA_DIR / 'train.jsonl'
         shuffle = True
@@ -43,19 +43,8 @@ def get_dataloader(mode='train'):
         raise ValueError(f"Invalid mode: {mode}. Use 'train', 'valid', or 'test'!")
 
     dataset = TranslationDataset(path)
-    return DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=shuffle, collate_fn=collate_fn)
+    return DataLoader(dataset, batch_size=args.bs, shuffle=shuffle, collate_fn=collate_fn)
 
 
 if __name__ == '__main__':
-    train_dataloader = get_dataloader('train')
-    valid_dataloader = get_dataloader('valid')
-    test_dataloader = get_dataloader('test')
-    print(len(train_dataloader))
-    print(len(valid_dataloader))
-    print(len(test_dataloader))
-
-    for input_tensor, target_tensor, src_lengths in train_dataloader:
-        print(input_tensor.shape)
-        print(target_tensor.shape)
-        print(src_lengths)
-        break
+    pass

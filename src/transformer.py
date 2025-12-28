@@ -5,32 +5,19 @@ import config
 from tools import load_pretrained_embedding
 
 
-# class PositionEncoding(nn.Module):
-#     def __init__(self, d_model, max_len=500):
-#         super().__init__()
-#         self.d_model = d_model
-#         self.max_len = max_len
-#
-#         pos = torch.arange(0, self.max_len, dtype=torch.float).unsqueeze(1)  # pos.shape: (max_len, 1)
-#         _2i = torch.arange(0, self.d_model, step=2, dtype=torch.float)  # _2i.shape: (d_model/2,)
-#         div_term = torch.pow(10000, _2i / self.d_model)
-#
-#         sins = torch.sin(pos / div_term)  # sins.shape: (max_len, d_model/2)
-#         coss = torch.cos(pos / div_term)  # coss.shape: (max_len, d_model/2)
-#
-#         pe = torch.zeros(self.max_len, self.d_model, dtype=torch.float)  # pe.shape: (max_len, d_model)
-#
-#         pe[:, 0::2] = sins
-#         pe[:, 1::2] = coss
-#
-#         self.register_buffer('pe', pe)
-#
-#     def forward(self, x):
-#         seq_len = x.size(1)
-#         return x + self.pe[:seq_len]
+class RMSNorm(nn.Module):
+    def __init__(self, d_model, eps=1e-8):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(d_model))
 
-# TODO: absolute vs. relative
-class PositionEncoding(nn.Module):
+    def forward(self, x):
+        # RMS (Root Mean Square)
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
+
+
+class AbsolutePositionEncoding(nn.Module):
     def __init__(self, max_len, dim_model):
         super().__init__()
         pe = torch.zeros([max_len, dim_model], dtype=torch.float)
@@ -49,22 +36,46 @@ class PositionEncoding(nn.Module):
         return x + part_pe
 
 
+class RelativePositionEncoding(nn.Module):
+    def __init__(self, max_len, dim_model):
+        super().__init__()
+        pe = torch.zeros([max_len, max_len, dim_model], dtype=torch.float)
+        for i in range(max_len):
+            for j in range(max_len):
+                # 计算相对距离（i - j）
+                rel_pos = i - j
+                for _2i in range(0, dim_model, 2):
+                    pe[i, j, _2i] = math.sin(rel_pos / (10000 ** (_2i / dim_model)))
+                    pe[i, j, _2i + 1] = math.cos(rel_pos / (10000 ** (_2i / dim_model)))
+
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        batch_size, seq_len, _ = x.shape
+        rel_pe = self.pe[:seq_len, :seq_len, :]  # [seq_len, seq_len, dim_model]
+        rel_pe_sum = rel_pe.sum(dim=1)  # [seq_len, dim_model]
+        rel_pe_sum = rel_pe_sum.unsqueeze(0)  # [1, seq_len, dim_model]
+        rel_pe_sum = rel_pe_sum.expand(batch_size, -1, -1)  # [batch_size, seq_len, dim_model]
+
+        return x + rel_pe_sum
+
+
 class TransformerModel(nn.Module):
-    def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index):
+    def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index, args):
         super().__init__()
 
         # 加载中文预训练词向量
         zh_pretrained = load_pretrained_embedding(
             vocab_list=zh_vocab_list,
             embedding_path=config.VOCAB_DIR / 'tencent-ailab-embedding-zh-d100-v0.2.0.txt',
-            embedding_dim=config.EMBEDDING_DIM,
+            embedding_dim=config.DIM_MODEL,
             cache_path=config.VOCAB_DIR / 'zh_pretrained_vectors.pt'
         )
         # 加载英文预训练词向量
         en_pretrained = load_pretrained_embedding(
             vocab_list=en_vocab_list,
             embedding_path=config.VOCAB_DIR / 'glove_2024_wikigiga_100d.txt',
-            embedding_dim=config.EMBEDDING_DIM,
+            embedding_dim=config.DIM_MODEL,
             cache_path=config.VOCAB_DIR / 'en_pretrained_vectors.pt'
         )
 
@@ -93,12 +104,20 @@ class TransformerModel(nn.Module):
         self.en_embedding.weight.requires_grad = True
 
         # 位置编码
-        self.position_encoding = PositionEncoding(config.MAX_SEQ_LENGTH, config.DIM_MODEL)
+        if args.position == 'absolute':
+            self.position_encoding = AbsolutePositionEncoding(config.MAX_SEQ_LENGTH, config.DIM_MODEL)
+        elif args.position == 'relative':
+            self.position_encoding = RelativePositionEncoding(config.MAX_SEQ_LENGTH, config.DIM_MODEL)
+        else:
+            raise ValueError(f"未知的位置编码类型: {args.position}")
+
+        if args.norm == 'rms':
+            torch.nn.LayerNorm = RMSNorm
 
         self.transformer = nn.Transformer(d_model=config.DIM_MODEL,
-                                          nhead=config.NUM_HEADS,
-                                          num_encoder_layers=config.NUM_ENCODER_LAYERS,
-                                          num_decoder_layers=config.NUM_DECODER_LAYERS,
+                                          nhead=args.heads,
+                                          num_encoder_layers=args.layers,
+                                          num_decoder_layers=args.layers,
                                           batch_first=True)
 
         self.linear = nn.Linear(in_features=config.DIM_MODEL, out_features=en_vocab_size)

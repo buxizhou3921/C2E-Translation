@@ -6,9 +6,40 @@ from tools import load_pretrained_embedding
 
 
 class Attention(nn.Module):
+    def __init__(self, align_func, hidden_size=256):
+        super().__init__()
+        self.align = align_func
+        self.hidden_size = hidden_size
+
+        if self.align == 'mul':
+            self.W_mul = nn.Linear(hidden_size, hidden_size, bias=False)
+        elif self.align == 'add':
+            self.W_add_decoder = nn.Linear(hidden_size, hidden_size, bias=False)
+            self.W_add_encoder = nn.Linear(hidden_size, hidden_size, bias=False)
+            self.v_add = nn.Parameter(torch.randn(hidden_size))
+
     def forward(self, decoder_hidden, encoder_outputs):
-        # TODO: alignment functions: multiplicative, and additive
-        attention_scores = torch.bmm(decoder_hidden, encoder_outputs.transpose(1, 2)) # dot-product
+        if self.align == 'dot':
+            attention_scores = torch.bmm(decoder_hidden, encoder_outputs.transpose(1, 2))
+        elif self.align == 'mul':
+            decoder_trans = self.W_mul(decoder_hidden)  # (batch, 1, hidden)
+            attention_scores = torch.bmm(decoder_trans, encoder_outputs.transpose(1, 2))
+        elif self.align == 'add':
+            # Additive attention (Bahdanau)
+            _, seq_len, _ = encoder_outputs.size()
+            decoder_trans = self.W_add_decoder(decoder_hidden)  # (batch, 1, hidden)
+            encoder_trans = self.W_add_encoder(encoder_outputs)  # (batch, seq_len, hidden)
+            # Expand decoder to match encoder dimensions for element-wise addition
+            decoder_expanded = decoder_trans.expand(-1, seq_len, -1)  # (batch, seq_len, hidden)
+            # add and tanh
+            sum_trans = torch.tanh(decoder_expanded + encoder_trans)  # (batch, seq_len, hidden)
+            # Compute scores using v_add parameter
+            # (batch, seq_len, hidden) * (hidden) -> (batch, seq_len)
+            attention_scores = torch.sum(sum_trans * self.v_add, dim=2)  # (batch, seq_len)
+            attention_scores = attention_scores.unsqueeze(1)  # (batch, 1, seq_len)
+        else:
+            raise ValueError(f"无效的注意力函数: {self.align}")
+
         attention_weights = torch.softmax(attention_scores, dim=-1)
         return torch.bmm(attention_weights, encoder_outputs)
 
@@ -56,7 +87,7 @@ class GRUAttentionEncoder(nn.Module):
 
 
 class GRUAttentionDecoder(nn.Module):
-    def __init__(self, vocab_size, padding_index, pretrained_vectors=None):
+    def __init__(self, vocab_size, padding_index, args, pretrained_vectors=None):
         super().__init__()
         self.embedding = nn.Embedding(num_embeddings=vocab_size,
                                       embedding_dim=config.EMBEDDING_DIM,
@@ -79,7 +110,7 @@ class GRUAttentionDecoder(nn.Module):
                           num_layers=2,
                           batch_first=True)
 
-        self.attention = Attention()
+        self.attention = Attention(args.align, config.HIDDEN_SIZE)
 
         self.linear = nn.Linear(in_features=2 * config.HIDDEN_SIZE,
                                 out_features=vocab_size)
@@ -106,7 +137,7 @@ class GRUAttentionDecoder(nn.Module):
 
 
 class GRUAttentionModel(nn.Module):
-    def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index):
+    def __init__(self, zh_vocab_list, zh_vocab_size, en_vocab_list, en_vocab_size, zh_padding_index, en_padding_index, args):
         super().__init__()
         # 加载中文预训练词向量
         zh_pretrained = load_pretrained_embedding(
@@ -124,7 +155,7 @@ class GRUAttentionModel(nn.Module):
         )
 
         self.encoder = GRUAttentionEncoder(vocab_size=zh_vocab_size, padding_index=zh_padding_index, pretrained_vectors=zh_pretrained)
-        self.decoder = GRUAttentionDecoder(vocab_size=en_vocab_size, padding_index=en_padding_index, pretrained_vectors=en_pretrained)
+        self.decoder = GRUAttentionDecoder(vocab_size=en_vocab_size, padding_index=en_padding_index, args=args, pretrained_vectors=en_pretrained)
 
 
 

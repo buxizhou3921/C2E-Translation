@@ -1,7 +1,6 @@
 import os
 import torch
 import numpy as np
-import config
 
 
 def load_pretrained_embedding(vocab_list, embedding_path, embedding_dim, cache_path):
