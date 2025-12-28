@@ -25,16 +25,11 @@ class Attention(nn.Module):
             decoder_trans = self.W_mul(decoder_hidden)  # (batch, 1, hidden)
             attention_scores = torch.bmm(decoder_trans, encoder_outputs.transpose(1, 2))
         elif self.align == 'add':
-            # Additive attention (Bahdanau)
             _, seq_len, _ = encoder_outputs.size()
             decoder_trans = self.W_add_decoder(decoder_hidden)  # (batch, 1, hidden)
             encoder_trans = self.W_add_encoder(encoder_outputs)  # (batch, seq_len, hidden)
-            # Expand decoder to match encoder dimensions for element-wise addition
             decoder_expanded = decoder_trans.expand(-1, seq_len, -1)  # (batch, seq_len, hidden)
-            # add and tanh
             sum_trans = torch.tanh(decoder_expanded + encoder_trans)  # (batch, seq_len, hidden)
-            # Compute scores using v_add parameter
-            # (batch, seq_len, hidden) * (hidden) -> (batch, seq_len)
             attention_scores = torch.sum(sum_trans * self.v_add, dim=2)  # (batch, seq_len)
             attention_scores = attention_scores.unsqueeze(1)  # (batch, 1, seq_len)
         else:

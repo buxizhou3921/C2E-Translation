@@ -12,7 +12,6 @@ class GRUEncoder(nn.Module):
                                       embedding_dim=config.EMBEDDING_DIM,
                                       padding_idx=padding_index)
 
-        # 用预训练向量初始化
         if pretrained_vectors is not None:
             # 确保嵌入维度匹配
             if pretrained_vectors.size(1) != config.EMBEDDING_DIM:
@@ -29,20 +28,10 @@ class GRUEncoder(nn.Module):
                           batch_first=True)
 
     def forward(self, x, src_lengths):
-        # x.shape: [batch_size, seq_len]
         embed = self.embedding(x)
-        # embed.shape: [batch_size, seq_len, embedding_dim]
-
-        # 打包序列，剔除padding
         packed = pack_padded_sequence(embed, src_lengths.cpu(), batch_first=True, enforce_sorted=False)
-
         packed_output, hidden = self.gru(packed)
-        # hidden.shape: [num_layers, batch_size, hidden_size]
-
-        # 将打包的输出还原为填充序列
         outputs, _ = pad_packed_sequence(packed_output, batch_first=True)
-        # outputs.shape: [batch_size, seq_len, hidden_size]
-
         return outputs, hidden
 
 
@@ -53,7 +42,6 @@ class GRUDecoder(nn.Module):
                                       embedding_dim=config.EMBEDDING_DIM,
                                       padding_idx=padding_index)
 
-        # 用预训练向量初始化
         if pretrained_vectors is not None:
             # 确保维度匹配
             if pretrained_vectors.size(0) != vocab_size or pretrained_vectors.size(1) != config.EMBEDDING_DIM:
@@ -74,14 +62,9 @@ class GRUDecoder(nn.Module):
                                 out_features=vocab_size)
 
     def forward(self, x, hidden_0, encoder_outputs=None):
-        # x.shape: [batch_size, 1]
-        # hidden_0.shape: [num_layers, batch_size, hidden_size]
         embed = self.embedding(x)
-        # embed.shape: [batch_size, 1, embedding_dim]
         output, hidden_n = self.gru(embed, hidden_0)
-        # output.shape: [batch_size, 1, hidden_size]
         output = self.linear(output)
-        # output.shape: [batch_size, 1, vocab_size]
         return output, hidden_n
 
 

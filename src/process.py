@@ -21,6 +21,7 @@ def analyze_seq_len(df):
     axes[0].set_title('Chinese Text Length')
     axes[1].hist(df['en_len'], bins=50)
     axes[1].set_title('English Text Length')
+    plt.savefig('seq_len.png')
     plt.show()
 
 
@@ -119,7 +120,7 @@ def process():
 
 
 if __name__ == '__main__':
-    # train_df = pd.read_json(config.RAW_DATA_DIR / 'train_10k.jsonl', lines=True,
+    # train_df = pd.read_json(config.RAW_DATA_DIR / 'train_100k.jsonl', lines=True,
     #                         orient='records', encoding='utf-8').dropna()
     # valid_df = pd.read_json(config.RAW_DATA_DIR / 'valid.jsonl', lines=True,
     #                         orient='records', encoding='utf-8').dropna()

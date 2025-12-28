@@ -37,27 +37,88 @@ class AbsolutePositionEncoding(nn.Module):
 
 
 class RelativePositionEncoding(nn.Module):
-    def __init__(self, max_len, dim_model):
-        super().__init__()
-        pe = torch.zeros([max_len, max_len, dim_model], dtype=torch.float)
-        for i in range(max_len):
-            for j in range(max_len):
-                # 计算相对距离（i - j）
-                rel_pos = i - j
-                for _2i in range(0, dim_model, 2):
-                    pe[i, j, _2i] = math.sin(rel_pos / (10000 ** (_2i / dim_model)))
-                    pe[i, j, _2i + 1] = math.cos(rel_pos / (10000 ** (_2i / dim_model)))
+    """
+    相对位置编码（Relative Position Encoding）
+    基于 Shaw et al. (2018) "Self-Attention with Relative Position Representations"
 
+    使用正弦/余弦函数计算相对位置编码，基于位置之间的相对距离而非绝对位置。
+    相对距离被裁剪到 [-max_relative_position, max_relative_position] 范围内。
+    """
+
+    def __init__(self, max_len, dim_model, max_relative_position=32):
+        """
+        初始化相对位置编码
+
+        Args:
+            max_len: 最大序列长度
+            dim_model: 模型维度
+            max_relative_position: 最大相对位置距离（超出此范围的位置将被裁剪）
+        """
+        super().__init__()
+        self.max_relative_position = max_relative_position
+        self.dim_model = dim_model
+
+        # 计算编码表的大小：从 -max_relative_position 到 +max_relative_position
+        # 总共 2 * max_relative_position + 1 个位置
+        vocab_size = 2 * max_relative_position + 1
+
+        # 创建相对位置编码表
+        pe = torch.zeros(vocab_size, dim_model, dtype=torch.float)
+
+        # 为每个相对位置计算编码
+        for pos in range(vocab_size):
+            # 将索引转换为相对位置：[0, vocab_size) -> [-max_relative_position, +max_relative_position]
+            relative_pos = pos - max_relative_position
+
+            for _2i in range(0, dim_model, 2):
+                # 正弦编码
+                pe[pos, _2i] = math.sin(relative_pos / (10000 ** (_2i / dim_model)))
+                # 余弦编码
+                if _2i + 1 < dim_model:
+                    pe[pos, _2i + 1] = math.cos(relative_pos / (10000 ** (_2i / dim_model)))
+
+        # 注册为 buffer（不参与梯度更新，但会被保存）
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        batch_size, seq_len, _ = x.shape
-        rel_pe = self.pe[:seq_len, :seq_len, :]  # [seq_len, seq_len, dim_model]
-        rel_pe_sum = rel_pe.sum(dim=1)  # [seq_len, dim_model]
-        rel_pe_sum = rel_pe_sum.unsqueeze(0)  # [1, seq_len, dim_model]
-        rel_pe_sum = rel_pe_sum.expand(batch_size, -1, -1)  # [batch_size, seq_len, dim_model]
+        """
+        前向传播
 
-        return x + rel_pe_sum
+        Args:
+            x: 输入张量 [batch_size, seq_len, dim_model]
+
+        Returns:
+            添加了相对位置编码的张量 [batch_size, seq_len, dim_model]
+        """
+        batch_size, seq_len, _ = x.shape
+
+        # 创建相对位置矩阵：每个位置 i 到位置 j 的相对距离
+        # positions[i, j] = i - j
+        positions = torch.arange(seq_len, device=x.device).unsqueeze(0)  # [1, seq_len]
+        relative_positions = positions.T - positions  # [seq_len, seq_len]
+
+        # 裁剪相对位置到 [-max_relative_position, max_relative_position]
+        relative_positions = torch.clamp(
+            relative_positions,
+            -self.max_relative_position,
+            self.max_relative_position
+        )
+
+        # 转换为索引：[-max_relative_position, +max_relative_position] -> [0, 2*max_relative_position]
+        relative_positions = relative_positions + self.max_relative_position
+
+        # 获取相对位置编码 [seq_len, seq_len, dim_model]
+        rel_pe = self.pe[relative_positions]
+
+        # 对每个查询位置，聚合所有键位置的相对编码
+        # 使用平均池化来聚合：[seq_len, seq_len, dim_model] -> [seq_len, dim_model]
+        rel_pe_aggregated = rel_pe.mean(dim=1)  # 平均所有相对位置
+
+        # 扩展到批次维度 [1, seq_len, dim_model] -> [batch_size, seq_len, dim_model]
+        rel_pe_aggregated = rel_pe_aggregated.unsqueeze(0).expand(batch_size, -1, -1)
+
+        # 添加到输入
+        return x + rel_pe_aggregated
 
 
 class TransformerModel(nn.Module):
@@ -103,13 +164,16 @@ class TransformerModel(nn.Module):
         self.zh_embedding.weight.requires_grad = True
         self.en_embedding.weight.requires_grad = True
 
-        # 位置编码
         if args.position == 'absolute':
             self.position_encoding = AbsolutePositionEncoding(config.MAX_SEQ_LENGTH, config.DIM_MODEL)
         elif args.position == 'relative':
-            self.position_encoding = RelativePositionEncoding(config.MAX_SEQ_LENGTH, config.DIM_MODEL)
+            self.position_encoding = RelativePositionEncoding(
+                max_len=config.MAX_SEQ_LENGTH,
+                dim_model=config.DIM_MODEL,
+                max_relative_position=config.MAX_RELATIVE_POSITION
+            )
         else:
-            raise ValueError(f"未知的位置编码类型: {args.position}")
+            raise ValueError(f"未知的位置编码类型: {args.position}. 支持的类型: 'absolute', 'relative'")
 
         if args.norm == 'rms':
             torch.nn.LayerNorm = RMSNorm
@@ -127,27 +191,15 @@ class TransformerModel(nn.Module):
         return self.decode(tgt, memory, tgt_mask, src_pad_mask)
 
     def encode(self, src, src_pad_mask):
-        # src.shape = [batch_size, src_len]
-        # src_pad_mask.shape = [batch_size, src_len]
         embed = self.zh_embedding(src)
-        # embed.shape = [batch_size, src_len, dim_model]
         embed = self.position_encoding(embed)
-
         memory = self.transformer.encoder(src=embed, src_key_padding_mask=src_pad_mask)
-        # memory.shape: [batch_size, src_len, dim_model]
-
         return memory
 
     def decode(self, tgt, memory, tgt_mask, memory_pad_mask):
-        # tgt.shape: [batch_size, tgt_len]
         embed = self.en_embedding(tgt)
         embed = self.position_encoding(embed)
-        # embed.shape: [batch_size, tgt_len, dim_model]
-
         output = self.transformer.decoder(tgt=embed, memory=memory,
                                           tgt_mask=tgt_mask, memory_key_padding_mask=memory_pad_mask)
-        # output.shape: [batch_size, tgt_len, dim_model]
-
         outputs = self.linear(output)
-        # outputs.shape: [batch_size, tgt_len, en_vocab_size]
         return outputs

@@ -48,8 +48,7 @@ class BaseTokenizer:
         special_tokens = [cls.pad_token, cls.unk_token, cls.sos_token, cls.eos_token]
         vocab_list = special_tokens + [
             token for token, freq in vocab_counter.items()
-            if freq >= min_freq and token.strip() != ''
-        ]
+            if freq >= min_freq and token.strip() != '' ]
 
         print(f'词表大小:{len(vocab_list)}')
 

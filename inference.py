@@ -12,7 +12,7 @@
 # python src/train.py -model transformer -position absolute -norm layer
 # python src/train.py -model transformer -position absolute -norm rms
 # python src/train.py -model transformer -position relative -norm layer
-# python src/train.py -model transformer -position relative -norm rms
+# python src/train.py -model transformer -position relative -norm layer
 
 # python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 5e-4 -heads 2 -layers 2
 # python src/train.py -model transformer -position absolute -norm layer -bs 64 -lr 5e-4 -heads 2 -layers 4
