@@ -1,12 +1,12 @@
 import torch
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
+import time
 import config
 import argparse
 from utils import load_model
 from dataset import get_dataloader
 from predict import predict_batch
 from tokenizer import ChineseTokenizer, EnglishTokenizer
-# 导入 T5 相关模块
 from transformers import T5Tokenizer
 
 
@@ -111,8 +111,11 @@ def run_evaluate():
     model = load_model(args, zh_tokenizer, en_tokenizer, device)
 
     # 4. 评估逻辑
+    start_time = time.time()
     bleu = evaluate(model, test_dataloader, device, predict_tokenizer, args)
+    end_time = time.time()
     print("评估结果")
+    print(f"评估耗时: {end_time - start_time:.2f} s")
     print(f"BLEU Score: {bleu:.4f}")
 
 
